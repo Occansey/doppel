@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from . import adapters, triage
+from . import adapters, report, triage
 from .model import Action, Case, Finding, Held, Kind, Status, Verb
 from .variants import generate
 from .xano import open_store
@@ -142,3 +142,16 @@ def read(case_id: str):
                                     technique=f.get("technique", ""))
     return {"case": store.case(case_id), "findings": fs,
             "held": store.held(case_id), "ledger": list(reversed(store.actions(case_id)))}
+
+
+@app.get("/api/finding/{finding_id}/report")
+def abuse_report(finding_id: str):
+    """Assemble the registrar abuse report. Doppel never sends it -- the decision to accuse
+    someone stays with a person, and the report says plainly what is still missing."""
+    for f in store._db["findings"] if hasattr(store, "_db") else []:
+        if f["id"] == finding_id:
+            c = store.case(f["case_id"])
+            r = report.build(case=c, finding=f, ledger=store.actions(f["case_id"]))
+            return {"subject": r.subject, "body": r.body, "ready": r.ready,
+                    "missing": r.missing, "evidence": r.evidence_count}
+    raise HTTPException(404, "no such finding")

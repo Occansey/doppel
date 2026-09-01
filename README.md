@@ -1,60 +1,77 @@
-# Pending Delete
+# Doppel
 
-**When someone dies, their domain walks the ICANN deletion lifecycle alone — and about
-seventy-five days later their life's work is released to a drop-catcher. This is the
-executor's console that races that clock.**
+**Someone is being you, and taking money for it.**
+
+Your customers cannot tell `goodwinplumbing` from `goodwinplurnbing`. Neither can Google.
+Doppel finds the lookalike domains impersonating a small business, works out which are already
+taken, and tells the owner which three actually matter today.
 
 DevNetwork [API + Cloud + AI] Hackathon 2026 · online track.
 Targets three stacking sponsor challenges: **SerpApi**, **Xano**, **name.com**.
 
 ---
 
-## The clock nobody tells the family about
+## The problem
 
-A domain does not disappear on its expiry date. It walks a defined lifecycle, and every phase
-below is a real term in ICANN policy:
+A plumber's customers get scammed by a fake version of his business — same name, same photos,
+taking deposits for jobs nobody will turn up to. He finds out when someone shouts at him about
+money he never took.
 
-| phase | length | site up? | recoverable? |
-|---|---|---|---|
-| Active | — | yes | yes |
-| Auto-Renew Grace | ~30 days | **yes** | yes, cheaply |
-| Redemption Grace | 30 days | **no** | yes, for a restore fee |
-| Pending Delete | 5 days | no | **no — at any price** |
-| Released | — | no | no; often gone in seconds |
-
-The cruelty is the ordering. The site stays up through the phase where recovery is cheap, and
-goes dark at the exact moment recovery becomes expensive. Families notice around day 30 —
-already inside Redemption — with roughly 35 days left and nobody counting them down.
+This is solved. It is called brand protection, it costs upward of $10,000 a year, and it is
+sold to companies with legal departments. Nobody sells it to a business with four employees
+and a van, which is most businesses.
 
 ## What it does
 
-**Find** — the person's public footprint, assembled from a name and a couple of anchors.
-**Time** — every domain placed on the lifecycle above, with a dated point of no return.
-**Hold** — renew what can be saved, secure what was lost before a drop-catcher takes it,
-and repoint DNS to a memorial rather than nothing.
+**Sweep.** Generate the lookalikes an attacker would actually register — not every
+permutation. The dangerous ones are typo-reachable from a phone keyboard, or read correctly at
+a glance (`rn` for `m`, `1` for `l`), or sit on a TLD a customer would believe.
+
+**Check.** Ask name.com, in bulk, which of them somebody already owns.
+
+**Rank.** Ask SerpApi who is actually ranking for the business name. A lookalike that is
+registered *and* appearing in search is a scam happening today; a free one is a risk you can
+close for the price of a callout. Most of the tail is noise, and Doppel says so.
+
+**Defend.** Register the dangerous free ones and point their DNS at the real site, so a
+mistyped address still lands the customer where it should.
 
 ## Where each API does real work
 
 | | |
 |---|---|
-| **SerpApi** | the Find step — live web, news and local results assembled into a footprint |
-| **name.com** | the Time and Hold steps — expiry, availability, registration, DNS |
-| **Xano** | estate record, executor identity, the phase clock, and the audit trail |
+| **name.com** | bulk availability → registration → DNS records. Four endpoints, all load-bearing. |
+| **SerpApi** | who is ranking for the brand. This is what separates a hypothetical from a live scam. |
+| **Xano** | the case file, the triage decisions, and an append-only evidence ledger. |
 
-## Rules this build holds itself to
+## The SaaS tool this replaces
 
-- Nothing is registered or renewed without an explicit human confirmation, shown in full first.
-- Sandbox (`api.dev.name.com`) by default. Real credentials must be supplied deliberately.
-- Every date carries its provenance. No estimate is ever presented as a certainty.
-- A search result is a *candidate* until a person confirms it. Attributing a stranger's site
-  to a dead man is a real harm.
-- No death certificates, identity documents, or payment details are handled here.
+Enterprise brand protection — MarkMonitor, ZeroFox and friends. Rebuilt for someone who cannot
+justify a five-figure retainer and does not have a legal team to hand the output to.
 
-See [SPECIFICATION.md](SPECIFICATION.md) for the contract.
+## What it refuses to do
+
+- **It will not cry wolf.** A free lookalike never reaches an urgent band; a review site that
+  ranks for your name is a *mention*, not an impersonator. Both have tests, because the
+  failure mode here is a business filing abuse reports against Checkatrade.
+- **It does not spend money quietly.** Registration requires an explicit confirmation, and a
+  refusal is written to the ledger too.
+- **Sandbox by default** (`api.dev.name.com`). Real credentials must be supplied deliberately.
+- **Every finding carries its provenance** — fixture or live, and which query produced it.
 
 ## Run
 
 ```bash
 python3 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 PYTHONPATH=src ./.venv/bin/python -m pytest tests/ -q
+./run.sh      # console on http://localhost:8077
 ```
+
+Runs on fixtures with no keys, and says so on screen. To go live:
+
+```bash
+SERPAPI_KEY=…  NAMECOM_USER=…  NAMECOM_TOKEN=…  XANO_BASE=…
+```
+
+See [SPECIFICATION.md](SPECIFICATION.md) for the contract and [docs/XANO.md](docs/XANO.md)
+for the schema.

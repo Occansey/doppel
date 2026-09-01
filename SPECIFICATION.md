@@ -1,78 +1,54 @@
-# Pending Delete
+# Doppel
 
-**One line:** When someone dies, their domain walks the ICANN deletion lifecycle alone — and
-about seventy-five days later their life's work is released to a drop-catcher. This is the
-executor's console that races that clock.
+**One line:** Small businesses are impersonated on lookalike domains and find out from angry
+customers. Doppel finds the lookalikes, ranks them by what is actually happening, and lets the
+owner take the dangerous ones away from the attacker.
 
-DevNetwork [API + Cloud + AI] Hackathon 2026 · online track · deadline **Sep 3, 2026 10:00 PDT**
-(19:00 Paris). Targets three stacking sponsor challenges: **SerpApi**, **Xano**, **name.com**.
+DevNetwork [API + Cloud + AI] Hackathon 2026 · online · deadline **Sep 3, 2026 19:00 Paris**.
 
 ---
 
 ## 1. The problem, precisely
 
-A domain does not vanish when it expires. It walks a defined lifecycle, and every phase has a
-name written into ICANN policy:
+An attacker does not need to hack anything. They register a domain one keystroke or one glyph
+away from a real business, copy the site, and take deposits. The business has no idea until a
+customer complains about money it never received.
 
-| phase | typical length | what the family sees |
-|---|---|---|
-| Active | — | the site works |
-| **Auto-Renew Grace Period** | ~30 days after expiry | usually still resolves; nobody notices |
-| **Redemption Grace Period** | 30 days | **the site goes dark**; restore still possible, for a fee |
-| **Pending Delete** | 5 days | cannot be restored by anyone, at any price |
-| Released | — | available to the public; valuable names are taken within seconds |
+Three things make it work:
 
-The cruelty is the ordering. The site stays up through the phase where recovery is cheap, and
-goes dark at the exact moment recovery becomes expensive. Families notice on roughly day 30 —
-inside Redemption — and have about 35 days left, which nobody tells them.
-
-Meanwhile the executor does not know: which registrar, which email the renewal notice goes to,
-what else the person had online, or that a clock is running at all.
+- `rn` renders as `m`. `1` renders as `l`. `vv` renders as `w`. At a glance, in a browser bar
+  or an email, the fake is the real one.
+- Customers believe `.com` belongs to you even when your site is `.co.uk`.
+- Search will happily rank the impostor for your own business name.
 
 ## 2. What the product does
 
-Three moves, in order.
+1. **Sweep** — generate the variants an attacker would actually pick, ranked by how well each
+   fools a human, capped so the list stays readable.
+2. **Check** — bulk availability from name.com: who already owns them.
+3. **Rank** — SerpApi: who is ranking for the business name. Registered + ranking = live scam.
+4. **Defend** — register the dangerous free ones; point DNS at the real site.
 
-**Find.** Given a name and a few anchors (city, employer, a known handle), discover the
-person's public footprint — sites, bylines, business listings, profiles, obituaries. The
-family almost never has the full list.
+## 3. Where each API is load-bearing
 
-**Time.** For every domain found, read its real registration record and place it on the
-lifecycle above with a dated deadline: *this becomes unrecoverable on 14 November.*
+- **name.com** — availability, registration, DNS records. Remove it and there is no product.
+- **SerpApi** — the only way to know whether a lookalike is *being used*. Without it every
+  finding is hypothetical and the ranking is guesswork.
+- **Xano** — case, findings, triage decisions, append-only ledger. If this reaches a registrar
+  or a payment processor, the case is only as strong as the record.
 
-**Hold.** Renew what must be kept. For what is already lost, secure the name before a
-drop-catcher does. Repoint DNS so the address resolves to a memorial page rather than nothing —
-or, later, to whatever the family chooses.
+## 4. The rules this build holds itself to
 
-## 3. Where each API does real work
+- **Never register without an explicit confirmation.** It spends money. Refusals are logged.
+- **Never cry wolf.** Free variants cannot reach an urgent band. A host that merely mentions
+  the brand is not an impersonator. Both are tested; both were bugs first.
+- **Sandbox by default.** `api.dev.name.com` unless deliberately overridden.
+- **Provenance on every row.** Fixture or live, and the query that produced it. A console that
+  cannot tell you which would let someone file an abuse report against an unchecked domain.
+- **The ledger is append-only.** No endpoint updates or deletes an action.
 
-- **SerpApi** — the Find step. Live structured search across web, news, and local results to
-  assemble the footprint from fragments. Nothing else can do this from a name and a city.
-- **name.com** — the Time and Hold steps. Not one call: availability *and* registration *and*
-  DNS record management, plus reading expiry to drive the lifecycle clock.
-- **Xano** — the system of record and the workflow: estate, executor identity, discovered
-  assets, the phase clock, every action written to an audit trail an executor may have to
-  show a probate court.
+## 5. Not in scope
 
-## 4. The SaaS tool this replaces
-
-Registrar account recovery for a deceased holder. Today that is a PDF, a death certificate
-scan, an email queue, and six weeks — repeated separately at every registrar, while the clock
-in §1 keeps running. It is the worst software anyone touches on the worst week of their life.
-
-## 5. Rules this build holds itself to
-
-- **Never register or renew anything without an explicit human confirmation.** The product
-  spends money and claims names. Every write is confirmed, shown in full first, and logged.
-- **Sandbox by default.** `api.dev.name.com` unless real credentials are deliberately supplied.
-- **A date is a claim.** Every deadline shown must be derived from a real registration record
-  and labelled with where it came from. No estimated dates presented as certain.
-- **Discovery is evidence, not proof.** A search result is a candidate until a human confirms
-  it belongs to the person. Wrong attribution here is a real harm.
-- **No death certificates, no identity documents, no payment details** are handled by this
-  build. It is a clock and a console, not a probate service.
-
-## 6. Not in scope
-
-Probate law, executor legal authority verification, transferring registrar ownership,
-handling the deceased's email, or anything touching bank or payment credentials.
+Filing abuse reports automatically, contacting the impersonator, anything touching the
+customer's payment credentials, or taking down content. Doppel produces evidence and takes
+domains off the market. A human decides what to do with the rest.
