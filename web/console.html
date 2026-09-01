@@ -1,220 +1,164 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pending Delete</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Doppel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
 <style>
-:root{
-  --paper:#F4F1EA; --card:#FBF9F5; --ink:#17150F; --mut:#6E675A; --hair:#DDD6C7;
-  --late:#A6371B;      /* running out */
-  --dark:#7A6A2E;      /* site already dark */
-  --gone:#4A443A;      /* unrecoverable */
-  --safe:#2E6B4A;
-  --serif:'Newsreader',Georgia,serif; --mono:'IBM Plex Mono','SF Mono',ui-monospace,monospace;
-}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
-  --paper:#141310; --card:#1C1A16; --ink:#EDE8DC; --mut:#948C7C; --hair:#2E2B23;
-  --late:#E4784F; --dark:#D6BE62; --gone:#8A8271; --safe:#68C293;}}
-:root[data-theme=dark]{--paper:#141310;--card:#1C1A16;--ink:#EDE8DC;--mut:#948C7C;--hair:#2E2B23;
-  --late:#E4784F;--dark:#D6BE62;--gone:#8A8271;--safe:#68C293;}
+:root{--bg:#FAF8F5;--card:#fff;--ink:#111014;--mut:#6B6560;--hair:#E4DFD7;
+ --scam:#C0271A;--held:#B8791C;--take:#1F6F4A;--ignore:#9A948C;
+ --serif:'Instrument Serif',Georgia,serif;--mono:'IBM Plex Mono',ui-monospace,monospace;--ui:'Inter',system-ui,sans-serif}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0F0E11;--card:#17161A;--ink:#F2EFEA;--mut:#9B948B;--hair:#2A2830;
+ --scam:#FF6B57;--held:#E9A945;--take:#4FC98C;--ignore:#736D66}}
+:root[data-theme=dark]{--bg:#0F0E11;--card:#17161A;--ink:#F2EFEA;--mut:#9B948B;--hair:#2A2830;--scam:#FF6B57;--held:#E9A945;--take:#4FC98C;--ignore:#736D66}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--paper);color:var(--ink);font-family:var(--serif);line-height:1.5;
-  padding:0 0 90px;-webkit-font-smoothing:antialiased}
-.wrap{max-width:60rem;margin:0 auto;padding:0 22px}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);line-height:1.5;padding-bottom:80px}
+.wrap{max-width:64rem;margin:0 auto;padding:0 22px}
+header{padding:52px 0 24px}
+.kick{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--mut)}
+h1{font-family:var(--serif);font-size:clamp(40px,7vw,68px);font-weight:400;line-height:1.02;
+ letter-spacing:-.02em;margin-top:12px;text-wrap:balance}
+h1 em{font-style:italic;color:var(--scam)}
+.sub{font-size:18px;color:var(--mut);margin-top:16px;max-width:44rem}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:26px;padding:16px;
+ background:var(--card);border:1px solid var(--hair);border-radius:10px}
+.bar .who{font-family:var(--mono);font-size:13px}
+.bar .who b{font-weight:500}
+button{font-family:var(--ui);font-size:14px;font-weight:500;border:1px solid var(--ink);
+ background:var(--ink);color:var(--bg);padding:10px 15px;border-radius:7px;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink)}
+button:disabled{opacity:.45;cursor:default}
+.tiny{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+ padding:7px 10px;border-radius:6px;border:1px solid var(--hair);background:transparent;color:var(--mut)}
+.tiny.act{border-color:var(--ink);color:var(--ink)}
 
-header{padding:54px 0 26px;border-bottom:1px solid var(--hair)}
-.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.26em;text-transform:uppercase;color:var(--mut)}
-h1{font-size:clamp(34px,6vw,54px);font-weight:400;letter-spacing:-.022em;margin-top:10px;text-wrap:balance}
-h1 em{font-style:italic;color:var(--mut)}
-.stand{font-size:19px;color:var(--mut);margin-top:14px;max-width:44rem}
+.alert{margin:26px 0 8px;border:1px solid var(--scam);border-left:5px solid var(--scam);
+ background:var(--card);border-radius:10px;padding:22px 24px;display:none}
+.alert.on{display:block}
+.alert .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--scam)}
+.alert .dom{font-family:var(--mono);font-size:clamp(20px,3.4vw,30px);margin-top:10px;word-break:break-all}
+.alert .said{font-size:17px;color:var(--mut);margin-top:12px;max-width:46rem}
+.alert .adv{font-size:15px;margin-top:14px;padding-top:14px;border-top:1px solid var(--hair)}
 
-/* the lifecycle strip: the whole argument in one row */
-.strip{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin:30px 0 8px}
-.ph{background:var(--card);border:1px solid var(--hair);padding:11px 12px}
-.ph b{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
-  text-transform:uppercase;color:var(--ink)}
-.ph span{display:block;font-family:var(--mono);font-size:10.5px;color:var(--mut);margin-top:5px;line-height:1.55}
-.ph.warn{border-color:var(--late)} .ph.warn b{color:var(--late)}
-.stripnote{font-family:var(--mono);font-size:12px;color:var(--mut);line-height:1.8;margin-bottom:36px}
-.stripnote b{color:var(--late);font-weight:500}
-
-section{padding:34px 0;border-bottom:1px solid var(--hair)}
-h2{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
-  color:var(--mut);margin-bottom:6px}
-.lede{font-size:17px;color:var(--mut);margin-bottom:20px;max-width:42rem}
-
-.dom{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:start;
-  background:var(--card);border:1px solid var(--hair);border-left:4px solid var(--hair);
-  padding:18px 20px;margin-bottom:12px}
-.dom .name{font-size:26px;letter-spacing:-.01em;word-break:break-all}
-.dom .meta{font-family:var(--mono);font-size:12px;color:var(--mut);margin-top:7px;line-height:1.85}
-.dom .verdict{font-family:var(--mono);font-size:12.5px;margin-top:10px;line-height:1.7;max-width:34rem}
-.count{text-align:right;min-width:132px}
-.count .n{font-size:46px;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
-.count .u{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--mut);margin-top:6px}
-.dom.active{border-left-color:var(--safe)} .dom.active .n{color:var(--safe)}
-.dom.auto_renew_grace{border-left-color:var(--late)} .dom.auto_renew_grace .n{color:var(--late)}
-.dom.redemption{border-left-color:var(--dark)} .dom.redemption .n{color:var(--dark)}
-.dom.pending_delete,.dom.released{border-left-color:var(--gone);opacity:.72}
-.dom.pending_delete .n,.dom.released .n{color:var(--gone);font-size:30px}
-.tag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
-  text-transform:uppercase;padding:3px 7px;border:1px solid currentColor;margin-right:7px}
-.src{font-family:var(--mono);font-size:11px;color:var(--mut);margin-top:9px;font-style:normal}
-
-.cand{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px dashed var(--hair)}
-.cand .body{flex:1}
-.cand .t{font-size:18px} .cand .u{font-family:var(--mono);font-size:11.5px;color:var(--mut);word-break:break-all}
-.cand .s{font-size:15px;color:var(--mut);margin-top:5px}
-.btn{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
-  border:1px solid var(--ink);background:transparent;color:var(--ink);padding:8px 11px;cursor:pointer}
-.btn.no{border-color:var(--hair);color:var(--mut)}
-.btn:disabled{opacity:.4;cursor:default}
-.btn.primary{background:var(--ink);color:var(--paper)}
-.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
-
-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
-th{text-align:left;color:var(--mut);font-weight:400;letter-spacing:.12em;text-transform:uppercase;
-  font-size:10.5px;padding:8px 10px 8px 0;border-bottom:1px solid var(--hair)}
-td{padding:9px 10px 9px 0;border-bottom:1px solid var(--hair);vertical-align:top;color:var(--mut)}
+h2{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+ color:var(--mut);margin:38px 0 4px}
+.lede{color:var(--mut);font-size:15px;margin-bottom:16px;max-width:44rem}
+.grp{margin-bottom:8px}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
+ background:var(--card);border:1px solid var(--hair);border-radius:9px;padding:13px 16px;margin-bottom:7px}
+.risk{font-family:var(--mono);font-size:15px;font-weight:500;min-width:34px;text-align:right}
+.d{font-family:var(--mono);font-size:14.5px;word-break:break-all}
+.w{font-size:13px;color:var(--mut);margin-top:3px}
+.acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.scam .risk{color:var(--scam)} .held .risk{color:var(--held)}
+.take .risk{color:var(--take)} .ignore{opacity:.5} .ignore .risk{color:var(--ignore)}
+.scam{border-color:var(--scam)} .held{border-color:var(--held)}
+details summary{cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--mut);padding:8px 0}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;margin-top:8px}
+th{text-align:left;font-weight:400;color:var(--mut);font-size:10.5px;letter-spacing:.12em;
+ text-transform:uppercase;padding:8px 12px 8px 0;border-bottom:1px solid var(--hair)}
+td{padding:8px 12px 8px 0;border-bottom:1px solid var(--hair);color:var(--mut);vertical-align:top}
 td.v{color:var(--ink)}
-.scroll{overflow-x:auto}
-.empty{font-family:var(--mono);font-size:12.5px;color:var(--mut);padding:16px 0}
-footer{padding:26px 0;font-family:var(--mono);font-size:11.5px;color:var(--mut);line-height:1.9}
+footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--hair);
+ font-family:var(--mono);font-size:11.5px;color:var(--mut);line-height:1.9}
 footer b{color:var(--ink);font-weight:500}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
-@media(max-width:640px){.strip{grid-template-columns:1fr 1fr}.dom{grid-template-columns:1fr}.count{text-align:left}}
-</style></head><body>
-<div class="wrap">
+.empty{font-family:var(--mono);font-size:12.5px;color:var(--mut);padding:14px 0}
+@media(max-width:640px){.row{grid-template-columns:auto 1fr}.acts{grid-column:1/-1;justify-content:flex-start}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style></head><body><div class="wrap">
 <header>
-  <div class="eyebrow">Pending Delete · executor's console</div>
-  <h1>Alan Whitfield died on 12 June.<br><em>His work has seventy-five days.</em></h1>
-  <p class="stand">A domain does not disappear when it expires. It walks a lifecycle with a
-  name for every phase — and the site stays online through the part where saving it is cheap,
-  then goes dark exactly when it stops being.</p>
-
-  <div class="strip" id="strip"></div>
-  <p class="stripnote">Families almost always notice at the third box — the moment the site
-  goes dark. <b>By then the affordable window has already closed</b> and roughly thirty-five
-  days remain, which nobody counts for them. This console counts them.</p>
+  <div class="kick">Doppel</div>
+  <h1>Someone is being you,<br><em>and taking money for it.</em></h1>
+  <p class="sub">Your customers can't tell <span style="font-family:var(--mono)">goodwinplumbing</span>
+  from <span style="font-family:var(--mono)">goodwinplurnbing</span>. Neither can Google.
+  Doppel finds the lookalikes, works out which ones are already taken, and tells you which
+  three actually matter today.</p>
+  <div class="bar">
+    <div class="who">Protecting <b id="who">…</b></div>
+    <button id="sweep">Run a sweep</button>
+    <button class="ghost" id="again">Refresh</button>
+  </div>
 </header>
 
-<section>
-  <h2>What is at stake</h2>
-  <p class="lede">Every domain found for Alan, placed on that lifecycle against a real
-  registration date.</p>
-  <div id="domains"><div class="empty">Loading…</div></div>
-</section>
+<div class="alert" id="alert"></div>
 
-<section>
-  <h2>Found online — needs a human</h2>
-  <p class="lede">Search returns candidates, not facts. Nothing is acted on until someone who
-  knew him confirms it was his.</p>
-  <div id="cands"><div class="empty">Nothing discovered yet.</div></div>
-  <div class="row">
-    <button class="btn primary" id="find">Search for Alan's footprint</button>
-    <button class="btn" id="reload">Refresh</button>
-  </div>
-</section>
+<h2>What to do today</h2>
+<p class="lede">Ranked by what is happening, not alphabetically. Registered and ranking means a
+customer is being taken right now; free means a risk you can close for the price of a callout.</p>
+<div id="live"></div>
 
-<section>
-  <h2>The account</h2>
-  <p class="lede">Append-only. An executor may have to show what was done, including what was
-  refused.</p>
-  <div class="scroll"><table id="ledger"><thead><tr>
-    <th>When</th><th>Action</th><th>Target</th><th>Mode</th><th>Result</th>
-  </tr></thead><tbody></tbody></table></div>
-</section>
+<details><summary id="restsum">Show the rest</summary><div id="rest"></div></details>
+
+<h2>The record</h2>
+<p class="lede">Append-only. If this ends up with a registrar or a payment processor, the case
+is only as strong as what you can show.</p>
+<table id="led"><thead><tr><th>When</th><th>Action</th><th>Target</th><th>Mode</th><th>Result</th></tr></thead><tbody></tbody></table>
 
 <footer id="foot"></footer>
-</div>
-
-<script>
-const PHASES=[
- {k:'active',n:'Active',s:'site up · renew cheaply'},
- {k:'auto_renew_grace',n:'Auto-renew grace',s:'~30 days · site still up · still cheap'},
- {k:'redemption',n:'Redemption',s:'30 days · SITE GOES DARK · restore fee',warn:1},
- {k:'pending_delete',n:'Pending delete',s:'5 days · nothing can be done'},
- {k:'released',n:'Released',s:'taken within seconds'}];
-const VERDICT={
- active:d=>`Still his. A renewal now costs the price of a coffee.`,
- auto_renew_grace:d=>`Expired, but the site is still up and this is still an ordinary renewal. This is the cheap window — it closes in ${d.days_left-30} days.`,
- redemption:d=>`The site is already dark. Visitors see nothing. It can still be saved, but only by paying a redemption fee — and only for ${d.days_left} more days.`,
- pending_delete:d=>`Gone. No amount of money brings this back. It will be released to the public within days.`,
- released:d=>`Released. Someone else may already own the address his work lived at.`,
- unknown:d=>`No registration record yet — the date is unknown, so no deadline is shown. A guess here would be worse than nothing.`};
-const LABEL={active:'Active',auto_renew_grace:'Auto-renew grace',redemption:'Redemption',
- pending_delete:'Pending delete',released:'Released',unknown:'Unknown'};
-
-let ESTATE=null;
-const $=id=>document.getElementById(id);
-
-$('strip').innerHTML=PHASES.map(p=>
- `<div class="ph ${p.warn?'warn':''}"><b>${p.n}</b><span>${p.s}</span></div>`).join('');
+</div><script>
+const $=i=>document.getElementById(i), CASE_KEY='doppel_case';
+const BUSINESS={business_name:'Goodwin Plumbing',domain:'goodwinplumbing.co.uk',
+  owner_email:'ray@goodwinplumbing.co.uk',anchors:['Wallsend','emergency plumber']};
+const CLS={'live scam':'scam','held by someone else':'held','worth taking':'take','ignore':'ignore'};
+let CASE=null;
 
 async function boot(){
   const h=await (await fetch('/api/health')).json();
-  $('foot').innerHTML=`Sources — SerpApi: <b>${h.serpapi?'live':'fixture'}</b> · `+
-    `name.com: <b>${h.namecom?h.namecom_env:'fixture'}</b> · Xano: <b>${h.xano?'live':'local store'}</b>`+
-    `<br>Nothing is renewed, registered or repointed without an explicit confirmation. `+
-    `Dates are shown only where a registration record supplied one.`;
-  let id=localStorage.getItem('pd_estate');
-  if(!id){
-    const r=await (await fetch('/api/estate',{method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({subject_name:'Alan Whitfield',executor_email:'executor@example.test',
-        died_on:'2026-06-12',anchors:['Wallsend','photographer']})})).json();
-    id=r.estate_id; localStorage.setItem('pd_estate',id);
-  }
-  ESTATE=id; await load();
+  $('foot').innerHTML=`Sources — SerpApi <b>${h.serpapi?'live':'fixture'}</b> · `+
+   `name.com <b>${h.namecom?h.namecom_env:'fixture'}</b> · store <b>${h.store}</b>`+
+   `<br>Nothing is registered without an explicit confirmation. A refusal is recorded too.`;
+  $('who').textContent=BUSINESS.domain;
+  CASE=localStorage.getItem(CASE_KEY);
+  if(!CASE){const r=await (await fetch('/api/case',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify(BUSINESS)})).json(); CASE=r.case_id; localStorage.setItem(CASE_KEY,CASE);}
+  await load();
+}
+function rowHTML(f){
+  const c=CLS[f.band]||'ignore';
+  const canDefend=f.registered===false;
+  return `<div class="row ${c}">
+    <div class="risk">${f.risk}</div>
+    <div><div class="d">${f.label}</div><div class="w">${f.band} · ${f.technique} — ${f.snippet||''}</div></div>
+    <div class="acts">
+      ${canDefend?`<button class="tiny act" onclick="defend('${f.label}')">Take it</button>`:''}
+      <button class="tiny" onclick="triage('${f.id}','hostile')">Hostile</button>
+      <button class="tiny" onclick="triage('${f.id}','harmless')">Harmless</button>
+    </div></div>`;
 }
 async function load(){
-  const d=await (await fetch(`/api/estate/${ESTATE}`)).json();
-  $('domains').innerHTML = d.domains.length ? d.domains.map(x=>`
-    <div class="dom ${x.phase}">
-      <div>
-        <div class="name">${x.name}</div>
-        <div class="meta"><span class="tag">${LABEL[x.phase]}</span>
-          ${x.expires_on?`expired ${x.expires_on}`:'no expiry on record'}
-          ${x.resolves===false?' · site is dark':''}</div>
-        <div class="verdict">${VERDICT[x.phase](x)}</div>
-        <div class="src">${x.source||''}</div>
-      </div>
-      <div class="count">
-        <div class="n">${x.days_left===null?'—':x.days_left}</div>
-        <div class="u">${x.recoverable===false?'unrecoverable':'days to save it'}</div>
-      </div>
-    </div>`).join('') : '<div class="empty">No domains confirmed yet — confirm one below.</div>';
+  const d=await (await fetch(`/api/case/${CASE}`)).json();
+  const open=d.findings.filter(f=>f.status==='pending');
+  const top=open.filter(f=>f.risk>=85)[0];
+  if(top){$('alert').classList.add('on');
+    $('alert').innerHTML=`<div class="lbl">Happening now</div>
+      <div class="dom">${top.label}</div>
+      <div class="said">Someone else owns this and it is appearing in search results for your
+      business. Anyone who mistypes one letter — or clicks the wrong result — reaches them,
+      not you.</div>
+      <div class="adv">${top.advice}</div>`;}
+  else $('alert').classList.remove('on');
 
-  const pend=d.candidates.filter(c=>c.status==='pending');
-  $('cands').innerHTML = pend.length ? pend.map(c=>`
-    <div class="cand">
-      <div class="body">
-        <div class="t">${c.label}</div>
-        <div class="u">${c.url}</div>
-        <div class="s">${c.snippet||''}</div>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button class="btn" onclick="decide('${c.id}','confirmed')">His</button>
-        <button class="btn no" onclick="decide('${c.id}','rejected')">Not his</button>
-      </div>
-    </div>`).join('') : '<div class="empty">Nothing awaiting a decision.</div>';
-
-  $('ledger').querySelector('tbody').innerHTML = d.ledger.length ? d.ledger.map(a=>`
-    <tr><td>${a.at.replace('T',' ').slice(0,16)}</td><td class="v">${a.verb}</td>
-    <td>${a.target}</td><td>${a.dry_run?'dry run':'applied'}</td><td>${a.result}</td></tr>`).join('')
-    : '<tr><td colspan="5">Nothing has happened yet.</td></tr>';
+  const urgent=open.filter(f=>f.band!=='ignore');
+  const rest=open.filter(f=>f.band==='ignore');
+  $('live').innerHTML=urgent.length?urgent.map(rowHTML).join(''):'<div class="empty">Nothing needs you today.</div>';
+  $('rest').innerHTML=rest.map(rowHTML).join('');
+  $('restsum').textContent=`Show the rest (${rest.length} low-risk)`;
+  $('led').querySelector('tbody').innerHTML=d.ledger.length?d.ledger.map(a=>
+    `<tr><td>${a.at.replace('T',' ').slice(0,16)}</td><td class="v">${a.verb}</td>
+     <td>${a.target}</td><td>${a.dry_run?'dry run':'applied'}</td><td>${a.result}</td></tr>`).join('')
+    :'<tr><td colspan="5">Nothing yet.</td></tr>';
 }
-async function decide(id,status){
-  await fetch(`/api/candidate/${id}/decide`,{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({status,actor:'executor@example.test'})});
+async function triage(id,status){
+  await fetch(`/api/finding/${id}/triage`,{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({status,actor:BUSINESS.owner_email})}); await load();
+}
+async function defend(domain){
+  if(!confirm(`Register ${domain} and point it at ${BUSINESS.domain}?\n\nThis spends money.`))return;
+  await fetch(`/api/case/${CASE}/defend/${domain}`,{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({actor:BUSINESS.owner_email,confirm:true,redirect_to:BUSINESS.domain})});
   await load();
 }
-$('find').onclick=async e=>{
-  e.target.disabled=true; e.target.textContent='Searching…';
-  await fetch(`/api/estate/${ESTATE}/discover`,{method:'POST'});
-  e.target.disabled=false; e.target.textContent="Search for Alan's footprint";
-  await load();
-};
-$('reload').onclick=load;
+$('sweep').onclick=async e=>{e.target.disabled=true;e.target.textContent='Sweeping…';
+  await fetch(`/api/case/${CASE}/sweep`,{method:'POST'});
+  e.target.disabled=false;e.target.textContent='Run a sweep';await load();};
+$('again').onclick=load;
 boot();
 </script></body></html>
