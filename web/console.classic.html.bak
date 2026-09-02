@@ -1,0 +1,187 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Doppel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#FAF8F5;--card:#fff;--ink:#111014;--mut:#6B6560;--hair:#E4DFD7;
+ --scam:#C0271A;--held:#B8791C;--take:#1F6F4A;--ignore:#9A948C;
+ --serif:'Instrument Serif',Georgia,serif;--mono:'IBM Plex Mono',ui-monospace,monospace;--ui:'Inter',system-ui,sans-serif}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0F0E11;--card:#17161A;--ink:#F2EFEA;--mut:#9B948B;--hair:#2A2830;
+ --scam:#FF6B57;--held:#E9A945;--take:#4FC98C;--ignore:#736D66}}
+:root[data-theme=dark]{--bg:#0F0E11;--card:#17161A;--ink:#F2EFEA;--mut:#9B948B;--hair:#2A2830;--scam:#FF6B57;--held:#E9A945;--take:#4FC98C;--ignore:#736D66}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--ui);line-height:1.5;padding-bottom:80px}
+.wrap{max-width:64rem;margin:0 auto;padding:0 22px}
+header{padding:52px 0 24px}
+.kick{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--mut)}
+h1{font-family:var(--serif);font-size:clamp(40px,7vw,68px);font-weight:400;line-height:1.02;
+ letter-spacing:-.02em;margin-top:12px;text-wrap:balance}
+h1 em{font-style:italic;color:var(--scam)}
+.sub{font-size:18px;color:var(--mut);margin-top:16px;max-width:44rem}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:26px;padding:16px;
+ background:var(--card);border:1px solid var(--hair);border-radius:10px}
+.bar .who{font-family:var(--mono);font-size:13px}
+.bar .who b{font-weight:500}
+button{font-family:var(--ui);font-size:14px;font-weight:500;border:1px solid var(--ink);
+ background:var(--ink);color:var(--bg);padding:10px 15px;border-radius:7px;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink)}
+button:disabled{opacity:.45;cursor:default}
+.tiny{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+ padding:7px 10px;border-radius:6px;border:1px solid var(--hair);background:transparent;color:var(--mut)}
+.tiny.act{border-color:var(--ink);color:var(--ink)}
+
+.alert{margin:26px 0 8px;border:1px solid var(--scam);border-left:5px solid var(--scam);
+ background:var(--card);border-radius:10px;padding:22px 24px;display:none}
+.alert.on{display:block}
+.alert .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--scam)}
+.alert .dom{font-family:var(--mono);font-size:clamp(20px,3.4vw,30px);margin-top:10px;word-break:break-all}
+.alert .said{font-size:17px;color:var(--mut);margin-top:12px;max-width:46rem}
+.alert .adv{font-size:15px;margin-top:14px;padding-top:14px;border-top:1px solid var(--hair)}
+
+h2{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+ color:var(--mut);margin:38px 0 4px}
+.lede{color:var(--mut);font-size:15px;margin-bottom:16px;max-width:44rem}
+.grp{margin-bottom:8px}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
+ background:var(--card);border:1px solid var(--hair);border-radius:9px;padding:13px 16px;margin-bottom:7px}
+.risk{font-family:var(--mono);font-size:15px;font-weight:500;min-width:34px;text-align:right}
+.d{font-family:var(--mono);font-size:14.5px;word-break:break-all}
+.w{font-size:13px;color:var(--mut);margin-top:3px}
+.acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.scam .risk{color:var(--scam)} .held .risk{color:var(--held)}
+.take .risk{color:var(--take)} .ignore{opacity:.5} .ignore .risk{color:var(--ignore)}
+.scam{border-color:var(--scam)} .held{border-color:var(--held)}
+details summary{cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--mut);padding:8px 0}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;margin-top:8px}
+th{text-align:left;font-weight:400;color:var(--mut);font-size:10.5px;letter-spacing:.12em;
+ text-transform:uppercase;padding:8px 12px 8px 0;border-bottom:1px solid var(--hair)}
+td{padding:8px 12px 8px 0;border-bottom:1px solid var(--hair);color:var(--mut);vertical-align:top}
+td.v{color:var(--ink)}
+footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--hair);
+ font-family:var(--mono);font-size:11.5px;color:var(--mut);line-height:1.9}
+footer b{color:var(--ink);font-weight:500}
+.panel{margin-top:10px;border:1px solid var(--hair);border-left:3px solid var(--sig,var(--ink));
+  background:var(--bg);padding:13px 15px;font-size:14px;line-height:1.6}
+.panel .h{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--mut);margin-bottom:7px}
+.panel blockquote{border-left:2px solid var(--hair);margin:8px 0;padding-left:11px;
+  font-style:italic;color:var(--mut);font-size:13.5px}
+.panel .rec{margin-top:9px;padding-top:9px;border-top:1px solid var(--hair);font-weight:500}
+.panel pre{font-family:var(--mono);font-size:11.5px;white-space:pre-wrap;line-height:1.7;
+  max-height:340px;overflow:auto;margin-top:6px}
+.panel .warn{color:var(--scam)}
+.chg{border:1px solid var(--hair);border-left:4px solid var(--take);background:var(--card);
+  padding:13px 15px;margin-bottom:7px;border-radius:8px}
+.chg.worse{border-left-color:var(--scam)}
+.chg b{display:block;font-size:15px}
+.chg span{color:var(--mut);font-size:13.5px}
+.empty{font-family:var(--mono);font-size:12.5px;color:var(--mut);padding:14px 0}
+@media(max-width:640px){.row{grid-template-columns:auto 1fr}.acts{grid-column:1/-1;justify-content:flex-start}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style></head><body><div class="wrap">
+<header>
+  <div class="kick">Doppel</div>
+  <h1>Someone is being you,<br><em>and taking money for it.</em></h1>
+  <p class="sub">Your customers can't tell <span style="font-family:var(--mono)">goodwinplumbing</span>
+  from <span style="font-family:var(--mono)">goodwinplurnbing</span>. Neither can Google.
+  Doppel finds the lookalikes, works out which ones are already taken, and tells you which
+  three actually matter today.</p>
+  <div class="bar">
+    <div class="who">Protecting <b id="who">…</b></div>
+    <button id="sweep">Run a sweep</button>
+    <button class="ghost" id="again">Refresh</button>
+  </div>
+</header>
+
+<div class="alert" id="alert"></div>
+
+<h2>What to do today</h2>
+<p class="lede">Ranked by what is happening, not alphabetically. Registered and ranking means a
+customer is being taken right now; free means a risk you can close for the price of a callout.</p>
+<div id="live"></div>
+
+<details><summary id="restsum">Show the rest</summary><div id="rest"></div></details>
+
+<h2>What changed since last time</h2>
+<p class="lede">A lookalike that was free last week and registered this morning is somebody
+preparing to use it. Run a second sweep to populate this.</p>
+<div id="changes"><div class="empty">No second sweep yet.</div></div>
+
+<h2>The record</h2>
+<p class="lede">Append-only. If this ends up with a registrar or a payment processor, the case
+is only as strong as what you can show.</p>
+<table id="led"><thead><tr><th>When</th><th>Action</th><th>Target</th><th>Mode</th><th>Result</th></tr></thead><tbody></tbody></table>
+
+<footer id="foot"></footer>
+</div><script>
+const $=i=>document.getElementById(i), CASE_KEY='doppel_case';
+const BUSINESS={business_name:'Goodwin Plumbing',domain:'goodwinplumbing.co.uk',
+  owner_email:'ray@goodwinplumbing.co.uk',anchors:['Wallsend','emergency plumber']};
+const CLS={'live scam':'scam','held by someone else':'held','worth taking':'take','ignore':'ignore'};
+let CASE=null;
+
+async function boot(){
+  const h=await (await fetch('/api/health')).json();
+  $('foot').innerHTML=`Sources — SerpApi <b>${h.serpapi?'live':'fixture'}</b> · `+
+   `name.com <b>${h.namecom?h.namecom_env:'fixture'}</b> · store <b>${h.store}</b>`+
+   `<br>Nothing is registered without an explicit confirmation. A refusal is recorded too.`;
+  $('who').textContent=BUSINESS.domain;
+  CASE=localStorage.getItem(CASE_KEY);
+  if(!CASE){const r=await (await fetch('/api/case',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify(BUSINESS)})).json(); CASE=r.case_id; localStorage.setItem(CASE_KEY,CASE);}
+  await load();
+}
+function rowHTML(f){
+  const c=CLS[f.band]||'ignore';
+  const canDefend=f.registered===false;
+  return `<div class="row ${c}" id="row-${f.id}">
+    <div class="risk">${f.risk}</div>
+    <div><div class="d">${f.label}</div><div class="w">${f.band} · ${f.technique} — ${f.snippet||''}</div></div>
+    <div class="acts">
+      ${f.registered?`<button class="tiny" onclick="look('${f.id}')">Look at it</button>`:''}
+      ${canDefend?`<button class="tiny act" onclick="defend('${f.label}')">Take it</button>`:''}
+      <button class="tiny" onclick="triage('${f.id}','hostile')">Hostile</button>
+      <button class="tiny" onclick="triage('${f.id}','harmless')">Harmless</button>
+      ${f.status==='hostile'?`<button class="tiny act" onclick="paper('${f.id}')">Abuse report</button>`:''}
+    </div><div id="panel-${f.id}" style="grid-column:1/-1"></div></div>`;
+}
+async function load(){
+  const d=await (await fetch(`/api/case/${CASE}`)).json();
+  const open=d.findings.filter(f=>f.status==='pending');
+  const top=open.filter(f=>f.risk>=85)[0];
+  if(top){$('alert').classList.add('on');
+    $('alert').innerHTML=`<div class="lbl">Happening now</div>
+      <div class="dom">${top.label}</div>
+      <div class="said">Someone else owns this and it is appearing in search results for your
+      business. Anyone who mistypes one letter — or clicks the wrong result — reaches them,
+      not you.</div>
+      <div class="adv">${top.advice}</div>`;}
+  else $('alert').classList.remove('on');
+
+  const urgent=open.filter(f=>f.band!=='ignore');
+  const rest=open.filter(f=>f.band==='ignore');
+  $('live').innerHTML=urgent.length?urgent.map(rowHTML).join(''):'<div class="empty">Nothing needs you today.</div>';
+  $('rest').innerHTML=rest.map(rowHTML).join('');
+  $('restsum').textContent=`Show the rest (${rest.length} low-risk)`;
+  loadChanges();
+  $('led').querySelector('tbody').innerHTML=d.ledger.length?d.ledger.map(a=>
+    `<tr><td>${a.at.replace('T',' ').slice(0,16)}</td><td class="v">${a.verb}</td>
+     <td>${a.target}</td><td>${a.dry_run?'dry run':'applied'}</td><td>${a.result}</td></tr>`).join('')
+    :'<tr><td colspan="5">Nothing yet.</td></tr>';
+}
+async function triage(id,status){
+  await fetch(`/api/finding/${id}/triage`,{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({status,actor:BUSINESS.owner_email})}); await load();
+}
+async function defend(domain){
+  if(!confirm(`Register ${domain} and point it at ${BUSINESS.domain}?\n\nThis spends money.`))return;
+  await fetch(`/api/case/${CASE}/defend/${domain}`,{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({actor:BUSINESS.owner_email,confirm:true,redirect_to:BUSINESS.domain})});
+  await load();
+}
+$('sweep').onclick=async e=>{e.target.disabled=true;e.target.textContent='Sweeping…';
+  await fetch(`/api/case/${CASE}/sweep`,{method:'POST'});
+  e.target.disabled=false;e.target.textContent='Run a sweep';await load();};
+$('again').onclick=load;
+boot();
+</script></body></html>
