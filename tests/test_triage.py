@@ -69,3 +69,13 @@ def test_similarity_recognises_containment_and_near_misses():
     from doppel.triage import brand_similarity
     assert brand_similarity("goodwinplumbing-uk.com", "goodwinplumbing.co.uk") == 1.0
     assert brand_similarity("facebook.com", "goodwinplumbing.co.uk") < 0.5
+
+
+def test_availability_is_posted_not_queried():
+    """name.com answers 405 to a GET on domains:checkAvailability. This shape mistake would
+    only have surfaced once credentials started working -- i.e. on the day of the demo."""
+    import inspect
+    from doppel import adapters
+    src = inspect.getsource(adapters.availability)
+    assert "c.post(" in src and "checkAvailability" in src
+    assert 'params=[("domainNames"' not in src

@@ -27,6 +27,25 @@ def namecom_base() -> str:
     return LIVE if os.getenv("NAMECOM_LIVE") == "1" else SANDBOX
 
 
+class WouldSpendRealMoney(RuntimeError):
+    """Raised instead of buying a domain on a production account."""
+
+
+def _guard_spend(what: str) -> None:
+    """Reads are free; writes are not. Against production, a write is refused unless someone
+    has deliberately set DOPPEL_ALLOW_SPEND=1 -- confirm=true in the UI is not enough, because
+    a demo click should never be one keystroke away from buying a domain with a real card.
+
+    This exists because the dev sandbox is unavailable on this account, so the same credentials
+    that run a free availability sweep would also, unguarded, complete a purchase."""
+    if namecom_base() != LIVE:
+        return
+    if os.getenv("DOPPEL_ALLOW_SPEND") != "1":
+        raise WouldSpendRealMoney(
+            f"{what} would run against PRODUCTION name.com and spend real money. "
+            "Set DOPPEL_ALLOW_SPEND=1 to permit it.")
+
+
 def _auth() -> tuple[str, str] | None:
     u, t = os.getenv("NAMECOM_USER"), os.getenv("NAMECOM_TOKEN")
     return (u, t) if u and t else None
@@ -41,19 +60,38 @@ def availability(domains: list[str]) -> Sourced:
         return Sourced({d: {"registered": d in taken,
                             "price": None if d in taken else 12.99} for d in domains},
                        live=False, source="fixture · no name.com credentials")
+    def ask(client, batch: list[str]) -> dict[str, dict]:
+        r = client.post(f"{namecom_base()}/v4/domains:checkAvailability",
+                        json={"domainNames": batch})
+        if r.status_code != 200:
+            return {}
+        return {row["domainName"]: row for row in r.json().get("results", [])}
+
     out: dict[str, dict] = {}
-    with httpx.Client(timeout=30, auth=auth) as c:
-        for i in range(0, len(domains), 50):                 # name.com caps the batch
-            batch = domains[i:i + 50]
-            r = c.get(f"{namecom_base()}/v4/domains:checkAvailability",
-                      params=[("domainNames", d) for d in batch])
-            if r.status_code != 200:
-                continue
-            for row in r.json().get("results", []):
-                out[row["domainName"]] = {
-                    "registered": not row.get("purchasable", False),
-                    "price": row.get("purchasePrice"),
-                }
+    with httpx.Client(timeout=40, auth=auth) as c:
+        rows: dict[str, dict] = {}
+        for i in range(0, len(domains), 50):
+            rows.update(ask(c, domains[i:i + 50]))
+
+        # A row without `purchasable` is AMBIGUOUS, not "registered". In a large batch
+        # name.com omits the field for domains whose availability it did not resolve --
+        # goodwinplurnbing.co.uk came back bare in a batch of 60 and purchasable:true when
+        # asked alone. Treating absence as "taken" reported 33 free domains as owned by
+        # attackers, which is the exact false accusation this product must never make.
+        unresolved = [d for d in domains if "purchasable" not in rows.get(d, {})]
+        for i in range(0, len(unresolved), 5):
+            rows.update(ask(c, unresolved[i:i + 5]))
+
+        for d in domains:
+            row = rows.get(d, {})
+            if "purchasable" in row:
+                out[d] = {"registered": not row["purchasable"],
+                          "price": row.get("purchasePrice")}
+            elif d in rows:
+                # Answered twice, still no availability: the registry says it is taken.
+                out[d] = {"registered": True, "price": None}
+            else:
+                out[d] = {"registered": None, "price": None}
     for d in domains:
         out.setdefault(d, {"registered": None, "price": None})
     return Sourced(out, live=True, source=f"name.com availability ({namecom_base()})")
@@ -61,6 +99,7 @@ def availability(domains: list[str]) -> Sourced:
 
 def register(domain: str, years: int = 1) -> Sourced:
     """Claim a dangerous lookalike. Only ever called behind an explicit confirmation."""
+    _guard_spend(f"register({domain})")
     auth = _auth()
     if not auth:
         return Sourced({"ok": False}, live=False,
@@ -76,6 +115,7 @@ def register(domain: str, years: int = 1) -> Sourced:
 def redirect(domain: str, to_host: str) -> Sourced:
     """Point a held lookalike at the real site, so a mistyped address still lands correctly.
     This is the payoff: the attacker's best domains now work *for* the business."""
+    _guard_spend(f"redirect({domain})")
     auth = _auth()
     if not auth:
         return Sourced({"ok": False}, live=False,
