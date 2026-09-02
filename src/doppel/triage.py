@@ -25,9 +25,15 @@ TECHNIQUE_WEIGHT = {
 
 
 def score(*, technique: str, registered: bool | None, ranking: bool = False,
-          resolves: bool = False) -> int:
+          resolves: bool = False, destination: str | None = None) -> int:
     """0-100. Registered-and-ranking dominates everything else, because that is the case where
     a customer is being taken today rather than hypothetically."""
+    # Owned by the business itself. Measured against a real estate: five of six registered
+    # Pimlico Plumbers lookalikes redirect to the real site. Scoring those as impersonation
+    # would be wrong five times out of six, and a business cried wolf at stops reading.
+    if destination == "ours":
+        return 0
+
     base = TECHNIQUE_WEIGHT.get(technique, 10)
     if registered is None:
         return min(base, 40)                    # unknown availability: do not over-claim
@@ -46,6 +52,7 @@ def score(*, technique: str, registered: bool | None, ranking: bool = False,
 
 
 def band(s: int) -> str:
+    if s == 0: return "already yours"
     if s >= 85: return "live scam"
     if s >= 60: return "held by someone else"
     if s >= 35: return "worth taking"

@@ -79,3 +79,16 @@ def test_availability_is_posted_not_queried():
     src = inspect.getsource(adapters.availability)
     assert ".post(" in src and "checkAvailability" in src
     assert 'params=[("domainNames"' not in src
+
+
+def test_a_lookalike_that_redirects_to_you_scores_zero():
+    """Measured on a real estate: five of six registered Pimlico lookalikes point at the
+    real site. Alarming on those is the fastest way to make the tool ignorable."""
+    s = score(technique="reads the same", registered=True, ranking=True,
+              resolves=True, destination="ours")
+    assert s == 0 and band(s) == "already yours"
+
+
+def test_destination_only_excuses_a_domain_when_it_is_actually_ours():
+    for dest in ("parked", "elsewhere", "unreachable", None):
+        assert score(technique="reads the same", registered=True, destination=dest) > 0

@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from . import adapters, report, triage
+from . import adapters, destination as dest, report, triage
 from .model import Action, Case, Finding, Held, Kind, Status, Verb
 from .variants import generate
 from .xano import open_store
@@ -63,8 +63,11 @@ def sweep(case_id: str, limit: int = 60):
     for v in variants:
         reg = avail.value.get(v.domain, {}).get("registered")
         is_ranking = v.domain in ranked_hosts
-        s = triage.score(technique=v.technique, registered=reg,
-                         ranking=is_ranking, resolves=is_ranking)
+        # Only registered domains are worth following -- a free one has nowhere to go, and
+        # the check costs a request each.
+        d = dest.classify(v.domain, c["domain"]) if reg else None
+        s = triage.score(technique=v.technique, registered=reg, ranking=is_ranking,
+                         resolves=is_ranking, destination=d.verdict if d else None)
         findings.append(Finding(
             case_id=case_id, kind=Kind.LOOKALIKE, label=v.domain,
             url=f"https://{v.domain}", snippet=v.why, technique=v.technique,
