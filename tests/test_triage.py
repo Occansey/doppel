@@ -77,5 +77,5 @@ def test_availability_is_posted_not_queried():
     import inspect
     from doppel import adapters
     src = inspect.getsource(adapters.availability)
-    assert "c.post(" in src and "checkAvailability" in src
+    assert ".post(" in src and "checkAvailability" in src
     assert 'params=[("domainNames"' not in src
