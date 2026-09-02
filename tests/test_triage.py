@@ -58,11 +58,15 @@ def test_a_review_site_ranking_for_you_is_not_an_impersonator():
     assert band(risk) == "ignore"
 
 
-def test_a_lookalike_that_ranks_is_still_caught():
+def test_a_search_discovered_lookalike_is_flagged_but_not_accused():
+    """This test previously asserted 'live scam'. That was wrong: the same code path also
+    matched pimlicoplumbersfranchise.co.uk, which is the brand's own franchise site. A host
+    found only in search results is flagged for a human, never auto-accused. A generated
+    lookalike that is registered and ranking still reaches 'live scam' via score()."""
     from doppel.triage import rank_finding_score
     risk, kind = rank_finding_score("goodwinplurnbing.co.uk", "goodwinplumbing.co.uk")
-    assert kind == "impersonating"
-    assert band(risk) == "live scam"
+    assert band(risk) == "held by someone else"
+    assert "check this is yours" in kind
 
 
 def test_similarity_recognises_containment_and_near_misses():
@@ -92,3 +96,18 @@ def test_a_lookalike_that_redirects_to_you_scores_zero():
 def test_destination_only_excuses_a_domain_when_it_is_actually_ours():
     for dest in ("parked", "elsewhere", "unreachable", None):
         assert score(technique="reads the same", registered=True, destination=dest) > 0
+
+
+def test_a_search_hit_can_never_be_auto_labelled_a_live_scam():
+    """pimlicoplumbersfranchise.co.uk contains the brand exactly and ranks for it -- and is
+    Pimlico's own franchise site. It scored 100. A sub-brand and an attacker are
+    string-identical; only a human can tell them apart."""
+    from doppel.triage import rank_finding_score
+    risk, kind = rank_finding_score("pimlicoplumbersfranchise.co.uk", "pimlicoplumbers.com")
+    assert band(risk) != "live scam"
+    assert "check this is yours" in kind
+
+
+def test_only_a_generated_lookalike_that_is_registered_and_ranking_reaches_live_scam():
+    top = score(technique="reads the same", registered=True, ranking=True, resolves=True)
+    assert band(top) == "live scam"

@@ -90,11 +90,22 @@ def brand_similarity(host: str, real_domain: str) -> float:
 IMPERSONATION_THRESHOLD = 0.72
 
 
+#: A search hit can never be auto-labelled a live scam, however similar the name.
+#: pimlicoplumbersfranchise.co.uk contains "pimlicoplumbers" and scored 100 -- it is Pimlico's
+#: own franchise site. Sub-brands (franchise, careers, shop) and attackers are
+#: string-identical; only a human can tell them apart, so the tool must not claim to.
+SEARCH_HIT_CEILING = 74
+
+
 def rank_finding_score(host: str, real_domain: str) -> tuple[int, str]:
-    """Score something that ranks for the brand but was not a generated variant."""
+    """Score something that ranks for the brand but was not a generated variant.
+
+    Capped below the 'live scam' band on purpose. Calling a company's own franchise site a
+    scam is not a nuisance false positive -- it is the product recommending an abuse report
+    against its own user.
+    """
     sim = brand_similarity(host, real_domain)
     if sim >= IMPERSONATION_THRESHOLD:
-        return score(technique="reads the same", registered=True,
-                     ranking=True, resolves=True), "impersonating"
+        return SEARCH_HIT_CEILING, "uses your name — check this is yours"
     # A directory, review site or marketplace. Worth a human glance, never an abuse report.
     return 22, "mentions you"

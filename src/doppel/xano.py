@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import asdict
 from typing import Iterable
 
@@ -50,26 +51,42 @@ class XanoStore:
     def _base(self, table: str) -> str:
         return f"{self.origin}/api:meta/workspace/{self.workspace}/table/{self.tables[table]}/content"
 
-    def _insert(self, table: str, row: dict) -> dict:
-        r = self._c.post(self._base(table), json=row)
+    def _call(self, method: str, url: str, **kw):
+        """Xano's Metadata API rate-limits hard: a sweep inserting rows one at a time returns
+        429 partway through and loses the tail. Retry with backoff, and prefer _insert_many."""
+        for attempt in range(5):
+            r = getattr(self._c, method)(url, **kw)
+            if r.status_code != 429:
+                r.raise_for_status()
+                return r.json()
+            time.sleep(2 ** attempt)
         r.raise_for_status()
-        return r.json()
+
+    def _insert(self, table: str, row: dict) -> dict:
+        return self._call("post", self._base(table), json=row)
+
+    def _insert_many(self, table: str, rows: list[dict]) -> list:
+        """One request for the whole batch. Forty findings as forty inserts exhausts the
+        rate limit; as one bulk call it is a single request."""
+        if not rows:
+            return []
+        out = []
+        for i in range(0, len(rows), 100):
+            out.extend(self._call("post", f"{self._base(table)}/bulk",
+                                  json={"items": rows[i:i + 100]}) or [])
+        return out
 
     def _rows(self, table: str) -> list[dict]:
         out, page = [], 1
         while True:
-            r = self._c.get(self._base(table), params={"page": page, "per_page": 200})
-            r.raise_for_status()
-            d = r.json()
+            d = self._call("get", self._base(table), params={"page": page, "per_page": 200})
             out.extend(d.get("items", []))
             if not d.get("nextPage"):
                 return out
             page = d["nextPage"]
 
     def _patch(self, table: str, row_id: int, row: dict) -> dict:
-        r = self._c.put(f"{self._base(table)}/{row_id}", json=row)
-        r.raise_for_status()
-        return r.json()
+        return self._call("put", f"{self._base(table)}/{row_id}", json=row)
 
     # --- writes ---------------------------------------------------------------
     def add_case(self, e: Case) -> Case:
@@ -87,15 +104,17 @@ class XanoStore:
         # Deduped on (case_id, url), matching the unique index in docs/XANO.md.
         seen = {(r.get("case_id"), r.get("url")) for r in self._rows("findings")}
         fresh = [c for c in cs if (c.case_id, c.url) not in seen]
+        rows = []
         for c in fresh:
             d = asdict(c)
-            self._insert("findings", {
+            rows.append({
                 "finding_id": d["id"], "case_id": d["case_id"], "kind": str(d["kind"]),
                 "label": d["label"], "url": d["url"], "source": d["source"],
                 "snippet": d["snippet"], "technique": d["technique"],
                 "registered": "" if d["registered"] is None else str(d["registered"]).lower(),
                 "risk": int(d["risk"]), "status": str(d["status"]),
                 "decided_by": d["decided_by"] or "", "decided_at": d["decided_at"] or ""})
+        self._insert_many("findings", rows)
         return fresh
 
     def decide(self, finding_id: str, status: Status, actor: str) -> dict:
