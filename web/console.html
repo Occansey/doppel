@@ -60,6 +60,21 @@ td.v{color:var(--ink)}
 footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--hair);
  font-family:var(--mono);font-size:11.5px;color:var(--mut);line-height:1.9}
 footer b{color:var(--ink);font-weight:500}
+.panel{margin-top:10px;border:1px solid var(--hair);border-left:3px solid var(--sig,var(--ink));
+  background:var(--bg);padding:13px 15px;font-size:14px;line-height:1.6}
+.panel .h{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--mut);margin-bottom:7px}
+.panel blockquote{border-left:2px solid var(--hair);margin:8px 0;padding-left:11px;
+  font-style:italic;color:var(--mut);font-size:13.5px}
+.panel .rec{margin-top:9px;padding-top:9px;border-top:1px solid var(--hair);font-weight:500}
+.panel pre{font-family:var(--mono);font-size:11.5px;white-space:pre-wrap;line-height:1.7;
+  max-height:340px;overflow:auto;margin-top:6px}
+.panel .warn{color:var(--scam)}
+.chg{border:1px solid var(--hair);border-left:4px solid var(--take);background:var(--card);
+  padding:13px 15px;margin-bottom:7px;border-radius:8px}
+.chg.worse{border-left-color:var(--scam)}
+.chg b{display:block;font-size:15px}
+.chg span{color:var(--mut);font-size:13.5px}
 .empty{font-family:var(--mono);font-size:12.5px;color:var(--mut);padding:14px 0}
 @media(max-width:640px){.row{grid-template-columns:auto 1fr}.acts{grid-column:1/-1;justify-content:flex-start}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -86,6 +101,11 @@ customer is being taken right now; free means a risk you can close for the price
 <div id="live"></div>
 
 <details><summary id="restsum">Show the rest</summary><div id="rest"></div></details>
+
+<h2>What changed since last time</h2>
+<p class="lede">A lookalike that was free last week and registered this morning is somebody
+preparing to use it. Run a second sweep to populate this.</p>
+<div id="changes"><div class="empty">No second sweep yet.</div></div>
 
 <h2>The record</h2>
 <p class="lede">Append-only. If this ends up with a registrar or a payment processor, the case
@@ -114,14 +134,16 @@ async function boot(){
 function rowHTML(f){
   const c=CLS[f.band]||'ignore';
   const canDefend=f.registered===false;
-  return `<div class="row ${c}">
+  return `<div class="row ${c}" id="row-${f.id}">
     <div class="risk">${f.risk}</div>
     <div><div class="d">${f.label}</div><div class="w">${f.band} · ${f.technique} — ${f.snippet||''}</div></div>
     <div class="acts">
+      ${f.registered?`<button class="tiny" onclick="look('${f.id}')">Look at it</button>`:''}
       ${canDefend?`<button class="tiny act" onclick="defend('${f.label}')">Take it</button>`:''}
       <button class="tiny" onclick="triage('${f.id}','hostile')">Hostile</button>
       <button class="tiny" onclick="triage('${f.id}','harmless')">Harmless</button>
-    </div></div>`;
+      ${f.status==='hostile'?`<button class="tiny act" onclick="paper('${f.id}')">Abuse report</button>`:''}
+    </div><div id="panel-${f.id}" style="grid-column:1/-1"></div></div>`;
 }
 async function load(){
   const d=await (await fetch(`/api/case/${CASE}`)).json();
@@ -141,6 +163,7 @@ async function load(){
   $('live').innerHTML=urgent.length?urgent.map(rowHTML).join(''):'<div class="empty">Nothing needs you today.</div>';
   $('rest').innerHTML=rest.map(rowHTML).join('');
   $('restsum').textContent=`Show the rest (${rest.length} low-risk)`;
+  loadChanges();
   $('led').querySelector('tbody').innerHTML=d.ledger.length?d.ledger.map(a=>
     `<tr><td>${a.at.replace('T',' ').slice(0,16)}</td><td class="v">${a.verb}</td>
      <td>${a.target}</td><td>${a.dry_run?'dry run':'applied'}</td><td>${a.result}</td></tr>`).join('')

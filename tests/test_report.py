@@ -66,3 +66,12 @@ def test_search_visibility_is_claimed_only_when_it_was_observed():
 
     loud = {**HOSTILE, "risk": 100, "source": "name.com availability (live) · ranking: serpapi"}
     assert "appears in search results" in build(case=CASE, finding=loud, ledger=LEDGER).body
+
+
+def test_the_report_endpoint_does_not_assume_the_local_store():
+    """It read store._db directly, which XanoStore does not have, so every report 404'd the
+    moment Xano was configured -- i.e. in the deployed demo."""
+    import inspect
+    from doppel import app as appmod
+    src = inspect.getsource(appmod.abuse_report)
+    assert "_all_findings()" in src and 'store._db' not in src

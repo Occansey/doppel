@@ -57,3 +57,29 @@ def test_a_bare_row_is_never_read_as_registered_without_a_retry():
     assert "unresolved" in src, "ambiguous rows must be re-queried"
     assert "range(0, len(unresolved), 5)" in src, "retry must use a small batch"
     assert 'not row.get("purchasable", False)' not in src, "the buggy default must not return"
+
+
+def test_the_deployed_console_explains_a_refusal_rather_than_500ing():
+    """The public deployment returned a bare 500 when it declined to buy a domain. A console
+    that refuses must say why -- silence looks like a crash."""
+    import inspect
+    from doppel import app as appmod
+    src = inspect.getsource(appmod.defend)
+    assert "WouldSpendRealMoney" in src and "409" in src
+
+
+def test_health_reports_the_store_it_is_actually_using():
+    """It reported xano:false while running XanoStore, because it checked an env var instead
+    of the object. A status line that contradicts reality is worse than none."""
+    import inspect
+    from doppel import app as appmod
+    assert 'type(store).__name__ == "XanoStore"' in inspect.getsource(appmod.health)
+
+
+def test_availability_does_not_claim_live_when_every_lookup_failed():
+    """The deployed console reported availability_live:true while name.com was refusing its
+    IP, so 47 unknown rows were presented as answers. An unreachable API must say so."""
+    import inspect
+    src = inspect.getsource(adapters.availability)
+    assert "UNREACHABLE" in src and "allowlists by IP" in src
+    assert 'live=False' in src

@@ -47,3 +47,31 @@ def test_domains_absent_from_the_previous_sweep_are_not_changes():
 def test_summary_counts_only_what_got_worse():
     cs = diff([f("a.com", True), f("b.com", False)], [f("a.com", False), f("b.com", True)])
     assert summary(cs) == "1 thing(s) got worse since the last sweep."
+
+
+def test_the_sweep_records_a_snapshot_or_the_monitor_is_dead():
+    """Without a snapshot in the sweep's ledger entry there is nothing to diff against, and
+    the change monitor reports 'nothing changed' forever while looking like it works."""
+    import inspect
+    from doppel import app as appmod
+    src = inspect.getsource(appmod.sweep)
+    assert '"snapshot": snapshot' in src
+
+
+def test_the_ledger_stores_verb_values_not_python_repr():
+    """XanoStore wrote 'Verb.SWEEP'. The change monitor filters on 'sweep' and found nothing,
+    so it reported 'run a second sweep' forever after any number of sweeps."""
+    import inspect
+    from doppel import xano
+    src = inspect.getsource(xano.XanoStore.log)
+    assert 'str(d["verb"])' not in src
+    assert 'getattr(d["verb"], "value"' in src
+
+
+def test_every_module_actually_imports_what_it_uses():
+    """changes() used json.loads with no import. Tests passed because none of them called
+    the endpoint -- only running it did. Import each module and compile it."""
+    import importlib, py_compile, pathlib
+    for f in pathlib.Path("src/doppel").glob("*.py"):
+        py_compile.compile(str(f), doraise=True)
+        importlib.import_module(f"doppel.{f.stem}")

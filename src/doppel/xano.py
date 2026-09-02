@@ -108,11 +108,11 @@ class XanoStore:
         for c in fresh:
             d = asdict(c)
             rows.append({
-                "finding_id": d["id"], "case_id": d["case_id"], "kind": str(d["kind"]),
+                "finding_id": d["id"], "case_id": d["case_id"], "kind": getattr(d["kind"], "value", d["kind"]),
                 "label": d["label"], "url": d["url"], "source": d["source"],
                 "snippet": d["snippet"], "technique": d["technique"],
                 "registered": "" if d["registered"] is None else str(d["registered"]).lower(),
-                "risk": int(d["risk"]), "status": str(d["status"]),
+                "risk": int(d["risk"]), "status": getattr(d["status"], "value", d["status"]),
                 "decided_by": d["decided_by"] or "", "decided_at": d["decided_at"] or ""})
         self._insert_many("findings", rows)
         return fresh
@@ -142,7 +142,7 @@ class XanoStore:
         # Append-only: nothing in this class updates or deletes an action.
         d = asdict(a)
         self._insert("actions", {"action_id": d["id"], "case_id": d["case_id"],
-                                 "verb": str(d["verb"]), "target": d["target"],
+                                 "verb": getattr(d["verb"], "value", d["verb"]), "target": d["target"],
                                  "actor": d["actor"], "detail": json.dumps(d["detail"]),
                                  "dry_run": str(d["dry_run"]).lower(), "result": d["result"],
                                  "at": d["at"]})

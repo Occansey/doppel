@@ -1,15 +1,18 @@
 """Doppel — the console."""
 from __future__ import annotations
 
+import json
+
 import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from . import adapters, destination as dest, report, triage
+from . import adapters, assessor, destination as dest, report, triage, watch
 from .model import Action, Case, Finding, Held, Kind, Status, Verb
 from .variants import generate
+from .adapters import WouldSpendRealMoney
 from .xano import open_store
 
 WEB = Path(__file__).resolve().parents[2] / "web"
@@ -31,7 +34,7 @@ def health():
             "serpapi": bool(os.getenv("SERPAPI_KEY")),
             "namecom": bool(os.getenv("NAMECOM_USER") and os.getenv("NAMECOM_TOKEN")),
             "namecom_env": "LIVE" if os.getenv("NAMECOM_LIVE") == "1" else "sandbox",
-            "xano": bool(os.getenv("XANO_BASE")),
+            "xano": type(store).__name__ == "XanoStore",
             "store": type(store).__name__}
 
 
@@ -86,9 +89,14 @@ def sweep(case_id: str, limit: int = 60):
             source=f'{ranking.source} · position {h.get("position")}'))
 
     fresh = store.add_findings(findings)
+    # Snapshot what this sweep saw, so the next one can diff against it. Without this the
+    # change monitor has nothing to compare and silently reports "nothing changed" forever.
+    snapshot = [{"label": f.label, "registered": f.registered, "source": f.source}
+                for f in findings]
     store.log(Action(case_id=case_id, verb=Verb.SWEEP, target=c["domain"], actor=c["owner_email"],
                      detail={"variants": len(variants), "new": len(fresh),
-                             "availability_live": avail.live, "search_live": ranking.live},
+                             "availability_live": avail.live, "search_live": ranking.live,
+                             "snapshot": snapshot},
                      dry_run=True,
                      result=f"{len(fresh)} findings ({avail.source}; {ranking.source})"))
     return {"new": len(fresh), "availability_live": avail.live, "search_live": ranking.live}
@@ -122,7 +130,14 @@ def defend(case_id: str, domain: str, b: Defend):
                          detail=b.model_dump(), dry_run=True,
                          result="refused: no explicit confirmation"))
         raise HTTPException(400, "This spends money. Send confirm=true.")
-    reg = adapters.register(domain)
+    try:
+        reg = adapters.register(domain)
+    except WouldSpendRealMoney as e:
+        # Surface the refusal as an explanation, not a 500. The deployed console is public
+        # and must say plainly why it will not buy a domain.
+        store.log(Action(case_id=case_id, verb=Verb.DEFEND, target=domain, actor=b.actor,
+                         detail=b.model_dump(), dry_run=True, result=f"refused: {e}"))
+        raise HTTPException(status_code=409, detail=str(e))
     store.log(Action(case_id=case_id, verb=Verb.DEFEND, target=domain, actor=b.actor,
                      detail={"years": 1}, dry_run=not reg.live, result=reg.source))
     dns = None
@@ -151,10 +166,64 @@ def read(case_id: str):
 def abuse_report(finding_id: str):
     """Assemble the registrar abuse report. Doppel never sends it -- the decision to accuse
     someone stays with a person, and the report says plainly what is still missing."""
-    for f in store._db["findings"] if hasattr(store, "_db") else []:
-        if f["id"] == finding_id:
+    for f in _all_findings():
+        if f.get("id") == finding_id:
             c = store.case(f["case_id"])
             r = report.build(case=c, finding=f, ledger=store.actions(f["case_id"]))
             return {"subject": r.subject, "body": r.body, "ready": r.ready,
                     "missing": r.missing, "evidence": r.evidence_count}
     raise HTTPException(404, "no such finding")
+
+
+@app.post("/api/finding/{finding_id}/assess")
+def assess_finding(finding_id: str):
+    """Look at the page rather than the name. This is the judgement triage.py refuses to make:
+    a sub-brand and an impersonator are string-identical, so something has to read the site.
+
+    It never changes the finding's band. It returns a recommendation for a human, because a
+    model that could escalate to 'live scam' would reintroduce the false accusation the rules
+    were changed to prevent."""
+    for f in _all_findings():
+        if f["id"] == finding_id:
+            c = store.case(f["case_id"])
+            a = assessor.assess(f["label"], c["domain"])
+            store.log(Action(case_id=f["case_id"], verb=Verb.TRIAGE, target=f["label"],
+                             actor="assessor", detail={"verdict": a.verdict,
+                                                       "confidence": a.confidence,
+                                                       "model": a.model},
+                             dry_run=True, result=f"assessment: {a.verdict}"))
+            return {"verdict": a.verdict, "confidence": a.confidence, "reasoning": a.reasoning,
+                    "evidence": a.evidence, "model": a.model, "usable": a.usable,
+                    "recommendation": assessor.recommendation(a)}
+    raise HTTPException(404, "no such finding")
+
+
+@app.get("/api/case/{case_id}/changes")
+def changes(case_id: str):
+    """What moved since the previous sweep. A lookalike that was free last week and is
+    registered this morning is somebody preparing to use it."""
+    sweeps = [a for a in store.actions(case_id)
+          if "sweep" in str(a.get("verb", "")).lower()]
+    if len(sweeps) < 2:
+        return {"summary": "Run a second sweep to see what changed.", "changes": []}
+    current = store.findings(case_id)
+    previous = json.loads(sweeps[-2].get("detail") or "{}").get("snapshot") or []
+    cs = watch.diff(previous, current)
+    return {"summary": watch.summary(cs),
+            "changes": [{"domain": c.domain, "kind": c.kind, "headline": c.headline,
+                         "detail": c.detail, "worse": c.worse} for c in cs]}
+
+
+def _all_findings() -> list[dict]:
+    rows = getattr(store, "_db", {}).get("findings") if hasattr(store, "_db") else None
+    if rows is not None:
+        return rows
+    out = []
+    seen = set()
+    for c in (store._rows("cases") if hasattr(store, "_rows") else []):
+        cid = c.get("case_id")
+        if not cid or cid in seen:
+            continue
+        seen.add(cid)
+        out.extend(store.findings(cid))
+    return out

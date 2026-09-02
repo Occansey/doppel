@@ -64,10 +64,15 @@ def availability(domains: list[str]) -> Sourced:
         r = client.post(f"{namecom_base()}/v4/domains:checkAvailability",
                         json={"domainNames": batch})
         if r.status_code != 200:
+            # Record it. Reporting live=True while every lookup 403s is how the deployed
+            # console claimed real data and showed 47 'unknown' rows as if they were answers.
+            failures["count"] += 1
+            failures["status"] = r.status_code
             return {}
         return {row["domainName"]: row for row in r.json().get("results", [])}
 
     out: dict[str, dict] = {}
+    failures = {"count": 0}
     with httpx.Client(timeout=40, auth=auth) as c:
         rows: dict[str, dict] = {}
         for i in range(0, len(domains), 50):
@@ -94,6 +99,11 @@ def availability(domains: list[str]) -> Sourced:
                 out[d] = {"registered": None, "price": None}
     for d in domains:
         out.setdefault(d, {"registered": None, "price": None})
+    if failures["count"] and not any(v["registered"] is not None for v in out.values()):
+        return Sourced(out, live=False,
+                       source=(f"name.com UNREACHABLE from this host "
+                               f"(http {failures.get('status')}) — availability unknown. "
+                               f"The API allowlists by IP; this host is not on the list."))
     return Sourced(out, live=True, source=f"name.com availability ({namecom_base()})")
 
 
