@@ -1,94 +1,170 @@
 """Xano as the system of record.
 
-Satisfies the same methods as `model.Store`, so the console does not know or care which is
-behind it. That is the point of writing the contract first: Xano is a deployment of the schema
-in docs/XANO.md, not a thing the application code is bent around.
+Satisfies the same methods as `model.Store`, so the console does not know which is behind it.
+That is what writing the contract first bought: Xano is a deployment of the schema in
+docs/XANO.md, not something the application was bent around.
 
-Set XANO_BASE (the workspace API group URL) and optionally XANO_TOKEN to switch over. Absent
-those, the app keeps the local JSON store and says so on screen.
+Rows are addressed through Xano's table content API. The workspace and table ids come from
+XANO_WORKSPACE / XANO_TABLES so the same code runs against a different workspace unchanged.
 """
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import asdict
 from typing import Iterable
 
 import httpx
 
-from .model import Action, Finding, Held, Case, Status
+from .model import Action, Case, Finding, Held, Status
+
+DEFAULT_TABLES = {"cases": 885041, "findings": 885042, "held": 885043, "actions": 885044}
+
+
+def _token() -> str | None:
+    tok = os.getenv("XANO_TOKEN")
+    if tok:
+        return tok
+    # Fall back to the CLI's credentials file so the app works wherever `xano profile` ran.
+    path = os.path.expanduser("~/.xano/credentials.yaml")
+    if not os.path.exists(path):
+        return None
+    for line in open(path):
+        if "access_token:" in line:
+            return line.split("access_token:", 1)[1].strip()
+    return None
 
 
 class XanoStore:
-    def __init__(self, base: str | None = None, token: str | None = None, timeout: float = 20):
-        self.base = (base or os.getenv("XANO_BASE", "")).rstrip("/")
-        self.token = token or os.getenv("XANO_TOKEN")
-        if not self.base:
-            raise RuntimeError("XANO_BASE is not set")
-        self._c = httpx.Client(timeout=timeout, headers=self._headers())
+    def __init__(self, origin: str | None = None, workspace: int | None = None):
+        self.origin = (origin or os.getenv("XANO_ORIGIN")
+                       or "https://x8ki-letl-twmt.n7.xano.io").rstrip("/")
+        self.workspace = int(workspace or os.getenv("XANO_WORKSPACE", "168087"))
+        self.tables = json.loads(os.getenv("XANO_TABLES", "{}")) or DEFAULT_TABLES
+        tok = _token()
+        if not tok:
+            raise RuntimeError("no Xano token (XANO_TOKEN or ~/.xano/credentials.yaml)")
+        self._c = httpx.Client(timeout=30, headers={"Authorization": f"Bearer {tok}",
+                                                    "content-type": "application/json"})
 
-    def _headers(self) -> dict:
-        h = {"content-type": "application/json"}
-        if self.token:
-            h["Authorization"] = f"Bearer {self.token}"
-        return h
+    def _base(self, table: str) -> str:
+        return f"{self.origin}/api:meta/workspace/{self.workspace}/table/{self.tables[table]}/content"
 
-    def _post(self, path: str, body: dict) -> dict:
-        r = self._c.post(f"{self.base}{path}", json=body)
+    def _insert(self, table: str, row: dict) -> dict:
+        r = self._c.post(self._base(table), json=row)
         r.raise_for_status()
         return r.json()
 
-    def _get(self, path: str, params: dict | None = None):
-        r = self._c.get(f"{self.base}{path}", params=params or {})
+    def _rows(self, table: str) -> list[dict]:
+        out, page = [], 1
+        while True:
+            r = self._c.get(self._base(table), params={"page": page, "per_page": 200})
+            r.raise_for_status()
+            d = r.json()
+            out.extend(d.get("items", []))
+            if not d.get("nextPage"):
+                return out
+            page = d["nextPage"]
+
+    def _patch(self, table: str, row_id: int, row: dict) -> dict:
+        r = self._c.put(f"{self._base(table)}/{row_id}", json=row)
         r.raise_for_status()
         return r.json()
 
     # --- writes ---------------------------------------------------------------
     def add_case(self, e: Case) -> Case:
-        self._post("/case", asdict(e))
+        d = asdict(e)
+        self._insert("cases", {"case_id": d["id"], "business_name": d["business_name"],
+                               "domain": d["domain"], "owner_email": d["owner_email"],
+                               "anchors": json.dumps(d.get("anchors") or []),
+                               "created_at_iso": d["created_at"]})
         return e
 
     def add_findings(self, cs: Iterable[Finding]) -> list[Finding]:
         cs = list(cs)
         if not cs:
             return []
-        # The unique index on (case_id, url) makes this idempotent server-side; Xano returns
-        # the rows it actually inserted so re-running discovery cannot duplicate a candidate.
-        out = self._post(f"/case/{cs[0].case_id}/findings",
-                         {"findings": [asdict(c) for c in cs]})
-        inserted = {r["url"] for r in out.get("inserted", [])}
-        return [c for c in cs if c.url in inserted]
+        # Deduped on (case_id, url), matching the unique index in docs/XANO.md.
+        seen = {(r.get("case_id"), r.get("url")) for r in self._rows("findings")}
+        fresh = [c for c in cs if (c.case_id, c.url) not in seen]
+        for c in fresh:
+            d = asdict(c)
+            self._insert("findings", {
+                "finding_id": d["id"], "case_id": d["case_id"], "kind": str(d["kind"]),
+                "label": d["label"], "url": d["url"], "source": d["source"],
+                "snippet": d["snippet"], "technique": d["technique"],
+                "registered": "" if d["registered"] is None else str(d["registered"]).lower(),
+                "risk": int(d["risk"]), "status": str(d["status"]),
+                "decided_by": d["decided_by"] or "", "decided_at": d["decided_at"] or ""})
+        return fresh
 
-    def decide(self, candidate_id: str, status: Status, actor: str) -> dict:
-        return self._post(f"/finding/{candidate_id}/decide",
-                          {"status": status.value, "actor": actor})
+    def decide(self, finding_id: str, status: Status, actor: str) -> dict:
+        from .model import _now
+        for r in self._rows("findings"):
+            if r.get("finding_id") == finding_id:
+                self._patch("findings", r["id"], {**r, "status": status.value,
+                                                  "decided_by": actor, "decided_at": _now()})
+                return self._shape_finding({**r, "status": status.value})
+        raise KeyError(finding_id)
 
     def upsert_held(self, d: Held) -> Held:
-        self._post("/domain", asdict(d))
+        row = asdict(d)
+        for r in self._rows("held"):
+            if r.get("case_id") == d.case_id and r.get("name") == d.name:
+                self._patch("held", r["id"], {**r, "redirects_to": row["redirects_to"] or "",
+                                              "source": row["source"]})
+                return d
+        self._insert("held", {"held_id": row["id"], "case_id": row["case_id"],
+                              "name": row["name"], "redirects_to": row["redirects_to"] or "",
+                              "source": row["source"], "acquired_at": row["acquired_at"] or ""})
         return d
 
     def log(self, a: Action) -> Action:
-        # actions is append-only: Xano exposes no update or delete on this table.
-        self._post("/action", asdict(a))
+        # Append-only: nothing in this class updates or deletes an action.
+        d = asdict(a)
+        self._insert("actions", {"action_id": d["id"], "case_id": d["case_id"],
+                                 "verb": str(d["verb"]), "target": d["target"],
+                                 "actor": d["actor"], "detail": json.dumps(d["detail"]),
+                                 "dry_run": str(d["dry_run"]).lower(), "result": d["result"],
+                                 "at": d["at"]})
         return a
 
     # --- reads ----------------------------------------------------------------
+    @staticmethod
+    def _shape_finding(r: dict) -> dict:
+        reg = r.get("registered")
+        return {**r, "id": r.get("finding_id"),
+                "registered": None if reg in ("", None) else reg == "true",
+                "risk": r.get("risk") or 0}
+
     def findings(self, case_id: str, status: Status | None = None) -> list[dict]:
-        p = {"status": status.value} if status else None
-        return self._get(f"/case/{case_id}/findings", p)
+        rows = [self._shape_finding(r) for r in self._rows("findings")
+                if r.get("case_id") == case_id]
+        return [r for r in rows if status is None or r["status"] == status.value]
 
     def held(self, case_id: str) -> list[dict]:
-        return self._get(f"/case/{case_id}/domains")
+        return [r for r in self._rows("held") if r.get("case_id") == case_id]
 
     def actions(self, case_id: str) -> list[dict]:
-        return self._get(f"/case/{case_id}/ledger")
+        rows = [r for r in self._rows("actions") if r.get("case_id") == case_id]
+        for r in rows:
+            r["dry_run"] = r.get("dry_run") == "true"
+        return sorted(rows, key=lambda r: r.get("at") or "")
 
     def case(self, case_id: str) -> dict:
-        return self._get(f"/case/{case_id}")
+        for r in self._rows("cases"):
+            if r.get("case_id") == case_id:
+                return {**r, "id": r["case_id"],
+                        "anchors": json.loads(r.get("anchors") or "[]")}
+        raise KeyError(case_id)
 
 
 def open_store(local_path):
     """Xano when configured, the local JSON store otherwise. The console reports which."""
     from .model import Store
-    if os.getenv("XANO_BASE"):
-        return XanoStore()
+    if os.getenv("XANO_BASE") or os.getenv("XANO_WORKSPACE"):
+        try:
+            return XanoStore()
+        except Exception:
+            return Store(local_path)
     return Store(local_path)

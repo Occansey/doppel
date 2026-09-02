@@ -132,15 +132,15 @@ class Store:
         self._flush()
         return fresh
 
-    def decide(self, candidate_id: str, status: Status, actor: str) -> dict:
+    def decide(self, finding_id: str, status: Status, actor: str) -> dict:
         for c in self._db["findings"]:
-            if c["id"] == candidate_id:
+            if c["id"] == finding_id:
                 c["status"] = status.value
                 c["decided_by"] = actor
                 c["decided_at"] = _now()
                 self._flush()
                 return c
-        raise KeyError(candidate_id)
+        raise KeyError(finding_id)
 
     def upsert_held(self, d: Held) -> Held:
         for row in self._db["held"]:
